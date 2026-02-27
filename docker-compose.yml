@@ -1,0 +1,27 @@
+services:
+  api:
+    build: .
+    container_name: ai-workspace-api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - mcp
+    volumes:
+      - ./:/app
+      - ./storage:/app/storage
+
+  redis:
+    image: redis:7
+    container_name: ai-workspace-redis
+    ports:
+      - "6379:6379"
+
+  mcp:
+    build:
+      context: ./mcp-server
+    container_name: ai-workspace-mcp
+    ports:
+      - "9000:9000"

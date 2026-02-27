@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+
+# env
+.env
+.env.*
+
+# storage (ignore contents, keep folders)
+storage/files/**
+storage/images/**
+!storage/.gitkeep
+!storage/files/.gitkeep
+!storage/images/.gitkeep
