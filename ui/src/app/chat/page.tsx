@@ -64,8 +64,8 @@ export default function ChatPage() {
       },
     });
 
-    wsRef.current = socket;
-
+    wsRef.current = socket.raw();
+    
     return () => socket.close();
   }, [token]);
 
