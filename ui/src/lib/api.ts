@@ -1,79 +1,117 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
+// ui/src/lib/api.ts
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
-export function getToken() {
-  return typeof window !== "undefined" ? localStorage.getItem("token") : null;
+function getAccessToken() {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem("access_token") || "";
 }
 
-export function setToken(token: string) {
-  localStorage.setItem("token", token);
+function getRefreshToken() {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem("refresh_token") || "";
 }
 
-export function clearToken() {
-  localStorage.removeItem("token");
+function setTokens(access: string, refresh?: string) {
+  localStorage.setItem("access_token", access);
+  if (refresh) localStorage.setItem("refresh_token", refresh);
 }
 
-export async function apiFetch(path: string, init: RequestInit = {}) {
-  const token = getToken();
-  const headers = new Headers(init.headers || {});
+export function clearTokens() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+}
 
-  // Only set JSON content-type if body is not FormData
-  const isForm = typeof FormData !== "undefined" && init.body instanceof FormData;
-  if (!isForm && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+async function refreshAccessToken(): Promise<string> {
+  const refresh_token = getRefreshToken();
+  if (!refresh_token) throw new Error("Session expired. Please login again.");
 
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`${API_BASE}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token }),
+  });
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(txt || `HTTP ${res.status}`);
+    clearTokens();
+    throw new Error(data?.detail || "Refresh failed. Please login again.");
   }
-  const ct = res.headers.get("content-type") || "";
-  return ct.includes("application/json") ? res.json() : res.text();
+
+  setTokens(data.access_token, data.refresh_token);
+  return data.access_token;
+}
+
+async function authFetch(url: string, init: RequestInit = {}, retry = true) {
+  const token = getAccessToken();
+
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      ...(init.headers || {}),
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  // retry once if token expired/unauthorized
+  if ((res.status === 401 || res.status === 403) && retry) {
+    await refreshAccessToken();
+    return authFetch(url, init, false);
+  }
+
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+
+  if (!res.ok) {
+    throw new Error(data?.detail || `Request failed: ${res.status}`);
+  }
+  return data;
+}
+
+/** AUTH */
+export async function register(email: string, password: string) {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.detail || "Register failed");
+
+  // ✅ store tokens
+  if (data?.access_token) setTokens(data.access_token, data.refresh_token);
+  return data;
 }
 
 export async function login(email: string, password: string) {
-  const data: any = await apiFetch("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
-  setToken(data.access_token);
-  return data;
-}
-
-export async function register(email: string, password: string) {
-  const data: any = await apiFetch("/auth/register", { method: "POST", body: JSON.stringify({ email, password }) });
-  setToken(data.access_token);
-  return data;
-}
-
-export async function me() {
-  return apiFetch("/auth/me");
-}
-
-export async function listConversations() {
-  return apiFetch("/conversations");
-}
-
-export async function getMessages(conversationId: string) {
-  return apiFetch(`/conversations/${conversationId}/messages`);
-}
-
-export async function uploadPdf(file: File, conversationId?: string) {
-  const form = new FormData();
-  form.append("file", file);
-  if (conversationId) form.append("conversation_id", conversationId);
-
-  const token = getToken();
-  const res = await fetch(`${API_BASE}/files/upload`, {
+  const res = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.detail || "Login failed");
+
+  // ✅ store tokens
+  if (data?.access_token) setTokens(data.access_token, data.refresh_token);
+  return data;
 }
 
-export async function createCheckoutSession() {
-  return apiFetch("/billing/create-checkout-session", { method: "POST" });
+/** DATA */
+export async function apiConversations() {
+  return authFetch(`${API_BASE}/conversations`);
 }
 
-export async function createPortalSession() {
-  return apiFetch("/billing/create-portal-session", { method: "POST" });
+export async function apiMessages(conversationId: string) {
+  return authFetch(`${API_BASE}/conversations/${conversationId}/messages`);
+}
+
+export async function apiUploadPdf(file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+
+  // IMPORTANT: don't set Content-Type for multipart, browser will do it
+  return authFetch(`${API_BASE}/files/upload`, { method: "POST", body: fd });
 }

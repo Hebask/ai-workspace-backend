@@ -6,6 +6,7 @@ from pydantic import field_validator
 from app.core.security import decode_token
 from app.services.auth_service import AuthService
 from app.repositories.users_repo import UsersRepo
+from app.core.security import create_access_token, create_refresh_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -78,9 +79,16 @@ async def me(user: dict = Depends(get_current_user)):
 class RefreshRequest(BaseModel):
     refresh_token: str
 
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
 @router.post("/refresh")
 async def refresh(req: RefreshRequest):
-    token = req.refresh_token.strip()
+    token = (req.refresh_token or "").strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
+
     if token.startswith("Bearer "):
         token = token.split(" ", 1)[1].strip()
 
@@ -93,4 +101,12 @@ async def refresh(req: RefreshRequest):
     if not user_id or not email:
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
-    return {"access_token": create_access_token(user_id, email)}
+    # Optional but recommended: ensure user still exists
+    user = await UsersRepo.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return {
+        "access_token": create_access_token(user_id, email),
+        "refresh_token": create_refresh_token(user_id, email),
+    }

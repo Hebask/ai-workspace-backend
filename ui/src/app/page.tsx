@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { login, register } from "@/lib/api";
 import { useRouter } from "next/navigation";
@@ -15,6 +16,10 @@ export default function Home() {
     try {
       if (mode === "login") await login(email, password);
       else await register(email, password);
+
+      const access = localStorage.getItem("access_token") || "";
+      if (!access) throw new Error("No access token saved. Check /auth response.");
+
       router.push("/chat");
     } catch (e: any) {
       setErr(String(e?.message || e));
