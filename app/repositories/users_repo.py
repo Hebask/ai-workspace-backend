@@ -22,6 +22,16 @@ class UsersRepo:
     async def get_by_id(user_id: str) -> Optional[dict]:
         db = get_db()
         return await db.users.find_one({"_id": user_id})
+    
+    @staticmethod
+    async def update_stripe_fields(user_id: str, **fields) -> None:
+        db = get_db()
+        await db.users.update_one({"_id": user_id}, {"$set": fields})
+
+    @staticmethod
+    async def set_plan(user_id: str, plan: str) -> None:
+        db = get_db()
+        await db.users.update_one({"_id": user_id}, {"$set": {"plan": plan}})
 
     @staticmethod
     async def create(email: str, password_hash: str, plan: str = "free") -> dict:
@@ -32,6 +42,10 @@ class UsersRepo:
             "password_hash": password_hash,
             "plan": plan,
             "created_at": datetime.now(timezone.utc),
+            "stripe_customer_id": None,
+            "stripe_subscription_id": None,
         }
+
+    
         await db.users.insert_one(doc)
         return doc

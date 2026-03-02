@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     app_name: str = Field(default="AI Workspace Backend", alias="APP_NAME")
     env: str = Field(default="dev", alias="ENV")
-    debug: bool = Field(default=True, alias="DEBUG")
+    debug: bool = Field(default=False, alias="DEBUG")
 
     host: str = Field(default="0.0.0.0", alias="HOST")
     port: int = Field(default=8000, alias="PORT")
@@ -22,13 +22,15 @@ class Settings(BaseSettings):
     access_token_minutes: int = Field(default=60, alias="ACCESS_TOKEN_MINUTES")
     refresh_token_days: int = Field(default=30, alias="REFRESH_TOKEN_DAYS")
 
-    mongo_uri: str = Field(default="mongodb://localhost:27017", alias="MONGO_URI")
+    # Works for local docker-compose (mongo service named "mongo").
+    # Atlas users override via .env
+    mongo_uri: str = Field(default="mongodb://mongo:27017", alias="MONGO_URI")
     mongo_db: str = Field(default="ai_workspace", alias="MONGO_DB")
 
-    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    redis_url: str = Field(default="redis://redis:6379/0", alias="REDIS_URL")
 
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
-    openai_model: str = Field(default="gpt-5.2", alias="OPENAI_MODEL")
+    openai_model: str = Field(default="gpt-4.1-mini", alias="OPENAI_MODEL")
     openai_timeout_sec: int = Field(default=60, alias="OPENAI_TIMEOUT_SEC")
 
     openai_embed_model: str = Field(default="text-embedding-3-small", alias="OPENAI_EMBED_MODEL")
@@ -52,6 +54,13 @@ class Settings(BaseSettings):
 
     mcp_base_url: str = Field(default="http://mcp:9000", alias="MCP_BASE_URL")
     agent_max_hops: int = Field(default=3, alias="AGENT_MAX_HOPS")
+
+    stripe_secret_key: str = Field(default="", alias="STRIPE_SECRET_KEY")
+    stripe_webhook_secret: str = Field(default="", alias="STRIPE_WEBHOOK_SECRET")
+    stripe_price_pro_monthly: str = Field(default="", alias="STRIPE_PRICE_PRO_MONTHLY")
+    stripe_success_url: str = Field(default="http://localhost:3000/billing/success", alias="STRIPE_SUCCESS_URL")
+    stripe_cancel_url: str = Field(default="http://localhost:3000/billing/cancel", alias="STRIPE_CANCEL_URL")
+    stripe_portal_return_url: str = Field(default="http://localhost:3000/settings/billing", alias="STRIPE_PORTAL_RETURN_URL")
 
     def cors_origin_list(self) -> List[str]:
         return [x.strip() for x in self.cors_origins.split(",") if x.strip()]

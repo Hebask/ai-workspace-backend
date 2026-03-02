@@ -7,11 +7,20 @@ services:
     ports:
       - "8000:8000"
     depends_on:
+      - mongo
       - redis
       - mcp
     volumes:
       - ./:/app
       - ./storage:/app/storage
+
+  mongo:
+    image: mongo:7
+    container_name: ai-workspace-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
 
   redis:
     image: redis:7
@@ -25,3 +34,6 @@ services:
     container_name: ai-workspace-mcp
     ports:
       - "9000:9000"
+
+volumes:
+  mongo_data:

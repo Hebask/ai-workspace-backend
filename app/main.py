@@ -15,6 +15,7 @@ from app.api.http_images import router as images_router
 from app.api.http_files_list import router as files_list_router
 from app.api.http_images_list import router as images_list_router
 from app.api.http_conversations import router as conversations_router
+from app.api.http_billing import router as billing_router
 from app.api.http_usage import router as usage_router
 
 app = FastAPI(title=settings.app_name)
@@ -43,6 +44,7 @@ app.include_router(files_list_router)
 app.include_router(images_list_router)
 app.include_router(conversations_router)
 app.include_router(usage_router)
+app.include_router(billing_router)
 
 @app.on_event("startup")
 async def on_startup():
